@@ -1,8 +1,8 @@
 import sys
-
+import models
 from typing import Optional
 from fastapi import Depends, APIRouter
-import models
+from sqlalchemy.orm import Session
 from database import engine, SessionLocal
 from pydantic import BaseModel
 from .auth import get_current_user, get_user_exception
@@ -26,6 +26,32 @@ class Address(BaseModel):
     address1: str
     address2: Optional[str]
     city: str
-    state: str
+    area: str
     country: str
     postcode: str
+
+@router.post("/")
+async def create_address(address: Address,
+                         user: dict = Depends(get_current_user),
+                         db: Session = Depends(get_db)):
+
+    if user is None:
+        raise get_user_exception()
+    address_model = models.Address()
+    address_model.address1 = address.address1
+    address_model.address2 = address.address2
+    address_model.city = address.city
+    address_model.area = address.area
+    address_model.country = address.country
+    address_model.postcode = address.postcode
+
+    db.add(address_model)
+    db.flush()
+
+    user_model = db.query(models.Users).filter(models.Users.id == user.get("id")).first()
+
+    user_model.address_id = address_model.id
+
+    db.add(user_model)
+
+    db.commit()
